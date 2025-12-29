@@ -1,0 +1,118 @@
+--- drivers/gpu/drm/amd/pm/swsmu/smu13/smu_v13_0_orig.c	2025-12-29 10:55:12.367040584 +0100
++++ drivers/gpu/drm/amd/pm/swsmu/smu13/smu_v13_0.c	2025-12-29 15:39:41.058870983 +0100
+@@ -402,6 +402,44 @@
+ 	return ret;
+ }
+ 
++// Avoid code duplication with smu11 and missing-prototypes
++static int smu_v13_custom_pptable(struct smu_context *smu) {
++	struct amdgpu_device *adev = smu->adev;
++	const struct firmware *fw;
++	char fw_name[64];
++	int ret = 0;
++
++	u16 vid = adev->pdev->vendor;
++	u16 pid = adev->pdev->device;
++
++	/* amdgpu/custom_ppt_1002_743f.bin */
++	snprintf(fw_name, sizeof(fw_name), "amdgpu/custom_ppt_%04x_%04x.bin", vid, pid);
++
++	ret = request_firmware(&fw, fw_name, adev->dev);
++
++	if (ret) {
++		dev_info(adev->dev,
++			 "[SMU v13] no custom pptable %s (%d)\n",
++			 fw_name, ret);
++		return ret;
++	}
++
++	dev_info(adev->dev,
++		 "[SMU v13] using custom pptable %s (size=%zu)\n",
++		 fw_name, fw->size);
++
++	/*
++	* IMPORTANT:
++	* do NOT free fw here
++	* firmware core keeps it alive
++	*/
++
++	smu->smu_table.power_play_table = (void *)fw->data;
++	smu->smu_table.power_play_table_size = fw->size;
++
++	return 0;
++}
++
+ int smu_v13_0_setup_pptable(struct smu_context *smu)
+ {
+ 	struct amdgpu_device *adev = smu->adev;
+@@ -409,6 +447,11 @@
+ 	void *table;
+ 	int ret = 0;
+ 
++	/* 1. Try custom pptable from filesystem */
++	ret = smu_v13_custom_pptable(smu);
++	if (!ret)
++		return 0;
++
+ 	/* override pptable_id from driver parameter */
+ 	if (amdgpu_smu_pptable_id >= 0) {
+ 		pptable_id = amdgpu_smu_pptable_id;
+--- drivers/gpu/drm/amd/pm/swsmu/smu11/smu_v11_0_orig.c	2025-11-02 14:15:23.000000000 +0100
++++ drivers/gpu/drm/amd/pm/swsmu/smu11/smu_v11_0.c	2025-12-29 15:39:41.746865364 +0100
+@@ -308,6 +308,44 @@
+ 	return 0;
+ }
+ 
++// Avoid code duplication with smu13 and missing-prototypes
++static int smu_v11_custom_pptable(struct smu_context *smu) {
++	struct amdgpu_device *adev = smu->adev;
++	const struct firmware *fw;
++	char fw_name[64];
++	int ret = 0;
++
++	u16 vid = adev->pdev->vendor;
++	u16 pid = adev->pdev->device;
++
++	/* amdgpu/custom_ppt_1002_743f.bin */
++	snprintf(fw_name, sizeof(fw_name), "amdgpu/custom_ppt_%04x_%04x.bin", vid, pid);
++
++	ret = request_firmware(&fw, fw_name, adev->dev);
++
++	if (ret) {
++		dev_info(adev->dev,
++			 "[SMU v11] no custom pptable %s (%d)\n",
++			 fw_name, ret);
++		return ret;
++	}
++
++	dev_info(adev->dev,
++		 "[SMU v11] using custom pptable %s (size=%zu)\n",
++		 fw_name, fw->size);
++
++	/*
++	* IMPORTANT:
++	* do NOT free fw here
++	* firmware core keeps it alive
++	*/
++
++	smu->smu_table.power_play_table = (void *)fw->data;
++	smu->smu_table.power_play_table_size = fw->size;
++
++	return 0;
++}
++
+ int smu_v11_0_setup_pptable(struct smu_context *smu)
+ {
+ 	struct amdgpu_device *adev = smu->adev;
+@@ -319,6 +357,11 @@
+ 	void *table;
+ 	uint16_t version_major, version_minor;
+ 
++	/* 1. Try custom pptable from filesystem */
++	ret = smu_v11_custom_pptable(smu);
++	if (!ret)
++		return 0;
++
+ 	if (!amdgpu_sriov_vf(adev)) {
+ 		hdr = (const struct smc_firmware_header_v1_0 *) adev->pm.fw->data;
+ 		version_major = le16_to_cpu(hdr->header.header_version_major);

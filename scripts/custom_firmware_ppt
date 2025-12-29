@@ -1,0 +1,20 @@
+#!/bin/sh
+set -e
+
+PREREQ=""
+
+prereqs() {
+    echo "$PREREQ"
+}
+
+case "$1" in
+    prereqs)
+        prereqs
+        exit 0
+        ;;
+esac
+
+. /usr/share/initramfs-tools/hook-functions
+
+mkdir -p "${DESTDIR}/lib/firmware/amdgpu"
+cp /lib/firmware/amdgpu/custom_ppt_*.bin "${DESTDIR}/lib/firmware/amdgpu/"
